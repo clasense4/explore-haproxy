@@ -8,7 +8,7 @@ In this repository we will explore how HA Proxy works. The goal of this implemen
 
 1. AWS Account
 2. Terraform
-3. Let's encrypt
+3. Domain Name
 
 
 
