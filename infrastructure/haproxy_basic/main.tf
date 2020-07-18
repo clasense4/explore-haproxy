@@ -48,6 +48,13 @@ resource "aws_security_group" "haproxy_sg" {
   }
 
   ingress {
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["202.80.214.161/32"]
+  }
+
+  ingress {
     from_port   = 32700
     to_port     = 32700
     protocol    = "tcp"

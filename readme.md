@@ -11,6 +11,27 @@ In this repository we will explore how HA Proxy works. The goal of this implemen
 3. Domain Name
 
 
+## Tricks
+
+### Validate HA Proxy config
+
+```shell
+haproxy -c -V -f /etc/haproxy/haproxy.cfg
+```
+
+### Request let's encrypt certificate
+
+```
+sudo certbot certonly --dns-route53 -d "*.serverless.my.id" -d serverless.my.id --agree-tos --no-bootstrap --manual-public-ip-logging-ok --preferred-challenges dns-01 --server https://acme-v02.api.letsencrypt.org/directory
+```
+
+### Combine let's encrypt certificate and private key
+
+```
+sudo cat /etc/letsencrypt/live/serverless.my.id/fullchain.pem \
+    /etc/letsencrypt/live/serverless.my.id/privkey.pem \
+    | sudo tee serverless.my.id.pem
+```
 
 ## Resources
 
@@ -20,6 +41,8 @@ In this repository we will explore how HA Proxy works. The goal of this implemen
 - [https://www.digitalocean.com/community/tutorials/an-introduction-to-haproxy-and-load-balancing-concepts](https://www.digitalocean.com/community/tutorials/an-introduction-to-haproxy-and-load-balancing-concepts)
 - [https://www.digitalocean.com/community/tutorial_series/load-balancing-wordpress-with-haproxy](https://www.digitalocean.com/community/tutorial_series/load-balancing-wordpress-with-haproxy)
 - [https://www.linode.com/docs/uptime/loadbalancing/how-to-use-haproxy-for-load-balancing/](https://www.linode.com/docs/uptime/loadbalancing/how-to-use-haproxy-for-load-balancing/)
+- [https://serversforhackers.com/c/letsencrypt-with-haproxy](https://serversforhackers.com/c/letsencrypt-with-haproxy)
+- [https://www.haproxy.com/blog/the-four-essential-sections-of-an-haproxy-configuration/](https://www.haproxy.com/blog/the-four-essential-sections-of-an-haproxy-configuration/)
 
 
 ### Monitoring
