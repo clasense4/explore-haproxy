@@ -2,30 +2,16 @@
 # HA Proxy Instance
 ################
 
-resource "aws_instance" "haproxy" {
-  ami                         = "ami-07ce5f60a39f1790e" # Ubuntu 18.04
+module "haproxy" {
+  source                      = "../modules/ec2"
+  name                        = "HAProxy"
+  ami_id                      = "ami-07ce5f60a39f1790e"
   instance_type               = "t2.micro"
   key_name                    = "fajri_haproxy"
   associate_public_ip_address = true
   security_groups             = ["${aws_security_group.haproxy_sg.id}"]
   subnet_id                   = "subnet-69398430"
-
-  user_data = <<EOF
-#!/bin/bash
-sudo apt-get update -y
-sudo apt-get install curl wget htop haproxy -y
-EOF
-
-  tags = {
-    Name        = "HAProxy"
-    Description = "Managed by terraform"
-  }
-  lifecycle {
-    ignore_changes = [
-      # Ignore changes to security group, it will force a new resource
-      tags, security_groups, vpc_security_group_ids, associate_public_ip_address
-    ]
-  }
+  user_data                   = "userdata_haproxy.sh"
 }
 
 resource "aws_security_group" "haproxy_sg" {
@@ -61,6 +47,13 @@ resource "aws_security_group" "haproxy_sg" {
     cidr_blocks = ["202.80.214.161/32"]
   }
 
+  ingress {
+    from_port   = 8404
+    to_port     = 8404
+    protocol    = "tcp"
+    cidr_blocks = ["202.80.214.161/32"]
+  }
+
   egress {
     from_port   = 0
     to_port     = 0
@@ -70,7 +63,15 @@ resource "aws_security_group" "haproxy_sg" {
 }
 
 output "haproxy_public_dns" {
-  value = aws_instance.haproxy.public_dns
+  value = module.haproxy.public_dns
+}
+
+resource "aws_route53_record" "www" {
+  zone_id = "Z0267035H2P3O9XYGZ3K"
+  name    = "haproxy.serverless.my.id"
+  type    = "A"
+  ttl     = "300"
+  records = ["${module.haproxy.public_ip}"]
 }
 
 
@@ -94,7 +95,7 @@ resource "aws_security_group" "backend_sg" {
     from_port   = 80
     to_port     = 80
     protocol    = "tcp"
-    cidr_blocks = ["${aws_instance.haproxy.private_ip}/32"]
+    cidr_blocks = ["${module.haproxy.private_ip}/32"]
   }
 
   ingress {
