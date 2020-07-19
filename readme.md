@@ -33,6 +33,12 @@ sudo cat /etc/letsencrypt/live/serverless.my.id/fullchain.pem \
     | sudo tee serverless.my.id.pem
 ```
 
+## Vegeta Load test Commands
+
+```
+echo "POST https://haproxy.serverless.my.id" | ./vegeta -cpus=2 attack -duration=10m -rate=100 -workers=4  | tee reports.bin | ./vegeta report
+```
+
 ## Resources
 
 ### Up and running, concepts
