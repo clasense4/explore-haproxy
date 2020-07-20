@@ -435,6 +435,10 @@ Jul 20 03:45:29 ip-172-31-6-128 haproxy[32063]: 202.80.214.161:49816 [20/Jul/202
 
 ---
 
+## Prometheus and Grafana
+
+Follow this guides: [prometheus](https://prometheus.io/docs/introduction/first_steps/) and [grafana](https://grafana.com/docs/grafana/latest/getting-started/getting-started/) for quick setup. And I also include a grafana dashboard (`serverless.my.id-1595219746160.json`) to monitor ssl and proxy request.
+
 ## Tricks
 
 ## Vegeta Load test Commands
