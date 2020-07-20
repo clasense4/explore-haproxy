@@ -439,6 +439,25 @@ Jul 20 03:45:29 ip-172-31-6-128 haproxy[32063]: 202.80.214.161:49816 [20/Jul/202
 
 Follow this guides: [prometheus](https://prometheus.io/docs/introduction/first_steps/) and [grafana](https://grafana.com/docs/grafana/latest/getting-started/getting-started/) for quick setup. And I also include a grafana dashboard (`serverless.my.id-1595219746160.json`) to monitor ssl and proxy request.
 
+The metrics that I think is important:
+
+```
+haproxy_process_current_ssl_connections
+haproxy_process_max_frontend_ssl_key_rate
+haproxy_process_max_ssl_rate
+haproxy_process_ssl_connections_total
+haproxy_process_current_frontend_ssl_key_rate
+haproxy_process_requests_total
+haproxy_process_max_connections
+haproxy_frontend_http_requests_total
+haproxy_process_current_ssl_connections
+```
+
+And this is the example of Grafana dashboard after the json is imported.
+
+![](/images/grafana_serverlessmyid.png)
+
+
 ## Tricks
 
 ## Vegeta Load test Commands
