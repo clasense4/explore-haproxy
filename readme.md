@@ -457,6 +457,134 @@ And this is the example of Grafana dashboard after the json is imported.
 
 ![](/images/grafana_serverlessmyid.png)
 
+---
+
+## Load test with Vegeta
+
+Let's try with a few simple vegeta command on my local machine
+
+```shell
+echo "POST https://haproxy.serverless.my.id" | ./vegeta -cpus=6 attack -duration=1m -rate=1000 -workers=100  | tee reports.bin | ./vegeta report
+
+Requests      [total, rate, throughput]         60000, 1000.02, 994.58
+Duration      [total, attack, wait]             1m0s, 59.999s, 19.286ms
+Latencies     [min, mean, 50, 90, 95, 99, max]  58.657µs, 27.124ms, 19.833ms, 20.549ms, 23.034ms, 291.102ms, 968.815ms
+Bytes In      [total, mean]                     696418, 11.61
+Bytes Out     [total, mean]                     0, 0.00
+Success       [ratio]                           99.49%
+Status Codes  [code:count]                      0:307  200:59693  
+Error Set:
+Post "https://haproxy.serverless.my.id": dial tcp 0.0.0.0:0->3.1.23.168:443: connect: no route to host
+Post "https://haproxy.serverless.my.id": dial tcp: lookup haproxy.serverless.my.id on 1.0.0.1:53: read udp 192.168.0.184:40341->1.0.0.1:53: read: no route to host
+Post "https://haproxy.serverless.my.id": dial tcp: lookup haproxy.serverless.my.id on 1.0.0.1:53: read udp 192.168.0.184:36153->1.0.0.1:53: read: no route to host
+...
+Post "https://haproxy.serverless.my.id": EOF
+Post "https://haproxy.serverless.my.id": read tcp 192.168.0.184:51569->3.1.23.168:443: read: connection reset by peer
+
+echo "POST https://haproxy.serverless.my.id" | ./vegeta -cpus=8 attack -duration=2m -rate=4000 -workers=100  | tee reports.bin | ./vegeta report
+Requests      [total, rate, throughput]         480000, 4000.02, 3690.36
+Duration      [total, attack, wait]             2m2s, 2m0s, 2.205s
+Latencies     [min, mean, 50, 90, 95, 99, max]  44.434µs, 283.444ms, 209.258ms, 625.791ms, 944.355ms, 1.297s, 5.85s
+Bytes In      [total, mean]                     5274757, 10.99
+Bytes Out     [total, mean]                     0, 0.00
+Success       [ratio]                           93.95%
+Status Codes  [code:count]                      0:28948  200:450979  502:73  
+Error Set:
+Post "https://haproxy.serverless.my.id": dial tcp 0.0.0.0:0->3.1.23.168:443: connect: no route to host
+Post "https://haproxy.serverless.my.id": dial tcp 0.0.0.0:0->3.1.23.168:443: socket: too many open files
+Post "https://haproxy.serverless.my.id": dial tcp: lookup haproxy.serverless.my.id on 1.0.0.1:53: dial udp 1.0.0.1:53: socket: too many open files
+Post "https://haproxy.serverless.my.id": dial tcp: lookup haproxy.serverless.my.id on 1.0.0.1:53: read udp 192.168.0.184:56169->1.0.0.1:53: read: no route to host
+..
+Post "https://haproxy.serverless.my.id": dial tcp: lookup haproxy.serverless.my.id on 1.0.0.1:53: read udp 192.168.0.184:46105->1.0.0.1:53: read: no route to host
+502 Bad Gateway
+Post "https://haproxy.serverless.my.id": dial tcp: lookup haproxy.serverless.my.id on 1.0.0.1:53: read udp 192.168.0.184:37205->1.0.0.1:53: read: no route to host
+...
+Post "https://haproxy.serverless.my.id": dial tcp: lookup haproxy.serverless.my.id on 1.0.0.1:53: read udp 192.168.0.184:42794->1.0.0.1:53: read: no route to host
+
+```
+
+This what is it looking on my machine and the HA Proxy instances.
+
+![](/images/vegeta_in_action.gif)
+
+The HA Proxy instance still survive, but not really, after I check with this command, we have some failures.
+
+```shell
+date && echo -n "Failures: " && cat /var/log/haproxy.log | grep 'SSL handshake failure' | wc -l
+Mon Jul 20 05:36:44 UTC 2020
+Failures: 17
+```
+
+But still survive. Our goal is to load test until the HA Proxy server can't serve anymore request, so we knew its limit. The instance is not suitable for production of course, it is t2.micro (1vCPU 1GB Ram).
+
+So we will create 2 load test instance, and install vegeta inside that instance. I use this following terraform script.
+
+```terraform
+module "vegeta_1" {
+  source                      = "../modules/ec2"
+  name                        = "vegeta_1"
+  ami_id                      = "ami-07ce5f60a39f1790e"
+  instance_type               = "t3a.medium"
+  key_name                    = "fajri_haproxy"
+  associate_public_ip_address = true
+  security_groups             = ["${aws_security_group.attacker_sg.id}"]
+  subnet_id                   = "subnet-69398430"
+  user_data                   = "userdata_vegeta.sh"
+}
+
+module "vegeta_2" {
+  source                      = "../modules/ec2"
+  name                        = "vegeta_2"
+  ami_id                      = "ami-07ce5f60a39f1790e"
+  instance_type               = "t3a.medium"
+  key_name                    = "fajri_haproxy"
+  associate_public_ip_address = true
+  security_groups             = ["${aws_security_group.attacker_sg.id}"]
+  subnet_id                   = "subnet-69398430"
+  user_data                   = "userdata_vegeta.sh"
+}
+
+resource "aws_security_group" "attacker_sg" {
+  name        = "attacker"
+  description = "Allow access to Attacker instance from VPN"
+  vpc_id      = "vpc-7829341f"
+
+  ingress {
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["202.80.214.161/32"]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
+output "vegeta_1_public_dns" {
+  value = module.vegeta_1.public_dns
+}
+output "vegeta_2_public_dns" {
+  value = module.vegeta_2.public_dns
+}
+```
+
+This is the user data to install Vegeta.
+
+```shell
+#!/bin/bash
+sudo apt-get update -y
+sudo apt install -y git curl wget htop
+cd /home/ubuntu
+wget https://github.com/tsenart/vegeta/releases/download/v12.8.3/vegeta-12.8.3-linux-amd64.tar.gz
+tar xvfz vegeta-12.8.3-linux-amd64.tar.gz
+sudo mv vegeta /usr/local/bin/vegeta
+```
+
+---
 
 ## Tricks
 
