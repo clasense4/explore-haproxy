@@ -598,9 +598,24 @@ But after I increase the ulimit (temporary to 50000). This is what we got.
 
 ![](/images/vegeta_2nd_attack.gif)
 
-The HA Proxy instance suddenly dropping the connection. And it is not serving any request from vegeta, the prometheus also not sending any data and even if we access https://haproxy.serverless.my.id it is not accessible. In this case, the important metrics is `haproxy_process_current_ssl_connections`.
+The HA Proxy instance suddenly dropping the connection. And it is not serving any request from vegeta, the prometheus also not sending any data and even if we access https://haproxy.serverless.my.id it is not accessible.
+
+And after checking the haproxy.log, here is the result.
+
+```
+date && echo -n "Failures: " && cat /var/log/haproxy.log | grep 'SSL handshake failure' | wc -l
+Mon Jul 20 06:16:13 UTC 2020
+Failures: 3321
+```
 
 ---
+
+## Conclusion
+
+Metrics is important when working with any systems. In this case, the important metrics is `haproxy_process_current_ssl_connections`. With help of Prometheus and Grafana, we can see it in a single dashboard. But there is also a challenge, for example, when the traffic is very high, this endpoint `http://haproxy.serverless.my.id:8404/metrics` is can't be accessed. So the result in our Grafana dashboard, we have empty space. Because the resource is all used to serve the traffic.
+
+![](/images/grafana_dashboard_emptyspace.png)
+
 
 ## Tricks
 
