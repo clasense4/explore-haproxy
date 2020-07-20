@@ -257,6 +257,99 @@ terraform apply -auto-approve
 
 The backend instances allowed port 22 to be accessed by any machine inside the VPC. And port 80 is only allowed for the HA Proxy instance.
 
+## Preparing the SSL certificate
+
+I use let's encrypt to get a free SSL certificate. I have a domain (`serverless.my.id`) and it is registered to route53. I use this following command to get certificate.
+
+```
+sudo certbot certonly --dns-route53 -d "*.serverless.my.id" -d serverless.my.id --agree-tos --no-bootstrap --manual-public-ip-logging-ok --preferred-challenges dns-01 --server https://acme-v02.api.letsencrypt.org/directory
+```
+
+> :exclamation: **If you have problem** with unreadable aws profile, change it to `[default]` profile.
+
+And use this commands to combine the certificate.
+
+```
+sudo cat /etc/letsencrypt/live/serverless.my.id/fullchain.pem \
+    /etc/letsencrypt/live/serverless.my.id/privkey.pem \
+    | sudo tee serverless.my.id.pem
+```
+
+## Configuring HA Proxy instance
+
+Take a note on the backend instances private ip, then SSH to the HA Proxy instance. Update the `/etc/haproxy/haproxy.cfg` with this configuration.
+
+```
+global
+    log /dev/log    local0
+    log /dev/log    local1 notice
+    chroot /var/lib/haproxy
+    stats socket /run/haproxy/admin.sock mode 660 level admin
+    stats timeout 30s
+    user haproxy
+    group haproxy
+    daemon
+
+    # Default SSL material locations
+    ca-base /etc/ssl/certs
+    crt-base /etc/ssl/private
+
+    # Default ciphers to use on SSL-enabled listening sockets.
+    # For more information, see ciphers(1SSL). This list is from:
+    #  https://hynek.me/articles/hardening-your-web-servers-ssl-ciphers/
+    # An alternative list with additional directives can be obtained from
+    #  https://mozilla.github.io/server-side-tls/ssl-config-generator/?server=haproxy
+    ssl-default-bind-ciphers ECDH+AESGCM:DH+AESGCM:ECDH+AES256:DH+AES256:ECDH+AES128:DH+AES:RSA+AESGCM:RSA+AES:!aNULL:!MD5:!DSS
+    ssl-default-bind-options no-sslv3
+
+    maxconn 2048
+    tune.ssl.default-dh-param 2048
+
+defaults
+    log     global
+    mode    http
+    option  httplog
+    option  dontlognull
+    option  forwardfor
+    option  http-server-close
+    timeout connect 5000
+    timeout client  50000
+    timeout server  50000
+    errorfile 400 /etc/haproxy/errors/400.http
+    errorfile 403 /etc/haproxy/errors/403.http
+    errorfile 408 /etc/haproxy/errors/408.http
+    errorfile 500 /etc/haproxy/errors/500.http
+    errorfile 502 /etc/haproxy/errors/502.http
+    errorfile 503 /etc/haproxy/errors/503.http
+    errorfile 504 /etc/haproxy/errors/504.http
+
+frontend haproxy.serverless.my.id
+    bind *:80
+    bind *:443 ssl crt /etc/ssl/serverless.my.id/serverless.my.id.pem #CHANGETHIS
+    http-request redirect scheme https unless { ssl_fc }
+    default_backend backend
+
+frontend stats
+   bind *:8404
+   option http-use-htx
+   http-request use-service prometheus-exporter if { path /metrics }
+   stats enable
+   stats uri /stats
+   stats refresh 10s
+
+backend backend
+    balance roundrobin
+    option forwardfor
+    http-request set-header X-Forwarded-Port %[dst_port]
+    http-request add-header X-Forwarded-Proto https if { ssl_fc }
+    option httpchk GET /
+    server node1 172.31.14.51:80 check #CHANGETHIS
+    server node2 172.31.1.31:80 check #CHANGETHIS
+    server node3 172.31.5.178:80 check #CHANGETHIS
+```
+
+> :exclamation: **Do not forget** to upload the SSL certificate and change the backend instance IP address
+
 ---
 
 ## Tricks
