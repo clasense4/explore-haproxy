@@ -412,6 +412,27 @@ We can open our browser to see it in action.
 
 ![](/images/haproxy_in_action.gif)
 
+Let's check the prometheus exporter
+
+![](/images/prometheus_exporter.png)
+
+Open `/var/log/haproxy.log` to see our load balancer in action.
+
+```shell
+tail -f /var/log/haproxy.log
+
+Jul 20 03:45:14 ip-172-31-6-128 haproxy[32063]: 202.80.214.161:49802 [20/Jul/2020:03:45:14.123] stats stats/<PROMEX> 0/0/0/0/0 200 44229 - - LR-- 1/1/0/0/0 0/0 "GET /metrics HTTP/1.1"
+Jul 20 03:45:19 ip-172-31-6-128 haproxy[32063]: 202.80.214.161:49804 [20/Jul/2020:03:45:19.117] stats stats/<PROMEX> 0/0/0/0/0 200 44230 - - LR-- 1/1/0/0/0 0/0 "GET /metrics HTTP/1.1"
+Jul 20 03:45:24 ip-172-31-6-128 haproxy[32063]: 202.80.214.161:49810 [20/Jul/2020:03:45:24.117] stats stats/<PROMEX> 0/0/0/0/0 200 44230 - - LR-- 1/1/0/0/0 0/0 "GET /metrics HTTP/1.1"
+Jul 20 03:45:26 ip-172-31-6-128 haproxy[32063]: 202.80.214.161:49582 [20/Jul/2020:03:45:26.485] haproxy.serverless.my.id~ backend/node3 0/0/0/1/1 200 212 - - ---- 1/1/0/0/0 0/0 "GET / HTTP/1.1"
+Jul 20 03:45:26 ip-172-31-6-128 haproxy[32063]: 202.80.214.161:49582 [20/Jul/2020:03:45:26.934] haproxy.serverless.my.id~ backend/node1 0/0/0/1/1 200 212 - - ---- 1/1/0/0/0 0/0 "GET /favicon.ico HTTP/1.1"
+Jul 20 03:45:27 ip-172-31-6-128 haproxy[32063]: 202.80.214.161:49582 [20/Jul/2020:03:45:27.224] haproxy.serverless.my.id~ backend/node2 0/0/0/1/1 200 209 - - ---- 1/1/0/0/0 0/0 "GET / HTTP/1.1"
+Jul 20 03:45:27 ip-172-31-6-128 haproxy[32063]: 202.80.214.161:49582 [20/Jul/2020:03:45:27.401] haproxy.serverless.my.id~ backend/node3 0/0/0/1/1 200 212 - - ---- 1/1/0/0/0 0/0 "GET /favicon.ico HTTP/1.1"
+Jul 20 03:45:27 ip-172-31-6-128 haproxy[32063]: 3.101.0.4:61187 [20/Jul/2020:03:45:27.616] haproxy.serverless.my.id haproxy.serverless.my.id/<NOSRV> 0/-1/-1/-1/0 302 119 - - LR-- 2/2/0/0/0 0/0 "GET / HTTP/1.1"
+Jul 20 03:45:28 ip-172-31-6-128 haproxy[32063]: 3.101.0.4:30286 [20/Jul/2020:03:45:28.355] haproxy.serverless.my.id~ backend/node1 0/0/1/1/2 200 172 - - ---- 2/2/0/0/0 0/0 "GET / HTTP/1.1"
+Jul 20 03:45:29 ip-172-31-6-128 haproxy[32063]: 202.80.214.161:49816 [20/Jul/2020:03:45:29.116] stats stats/<PROMEX> 0/0/0/0/0 200 44220 - - LR-- 2/1/0/0/0 0/0 "GET /metrics HTTP/1.1"
+```
+
 ---
 
 ## Tricks
