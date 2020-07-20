@@ -379,7 +379,7 @@ If we check our EC2 menu, we should see something like this.
 
 We can open our browser to see it in action.
 
-![](/images/haproxy-in-action.gif)
+![](/images/haproxy_in_action.webm)
 
 ---
 
