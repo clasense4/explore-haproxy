@@ -2,7 +2,7 @@
 
 ## Introduction
 
-In this repository we will explore how HA Proxy works. The goal of this implementation is to get understanding how HA Proxy works. The instance is used for **SSL offloading** and proxies around **25000 requests per second**. Also we will explore how to monitor HA Proxy and send our metrics to Prometheus and Grafana.
+In this repository we will explore how HA Proxy works. The goal of this implementation is to get understanding how HA Proxy works. The instance is used for **SSL offloading** and proxies around **25000 requests per second**. Also we will explore how to monitor HA Proxy and send our metrics to Prometheus.
 
 ## Pre-requisite
 
@@ -10,6 +10,76 @@ In this repository we will explore how HA Proxy works. The goal of this implemen
 2. Terraform
 3. Domain Name
 
+## HA Proxy Instance
+
+I use this following commands to create a HA Proxy instance using terraform.
+
+```terraform
+module "haproxy" {
+  source                      = "../modules/ec2"
+  name                        = "HAProxy"
+  ami_id                      = "ami-07ce5f60a39f1790e"
+  instance_type               = "t2.micro"
+  key_name                    = "fajri_haproxy"
+  associate_public_ip_address = true
+  security_groups             = ["${aws_security_group.haproxy_sg.id}"]
+  subnet_id                   = "subnet-69398430"
+  user_data                   = "userdata_haproxy.sh"
+}
+```
+
+This is the user data to install HA Proxy.
+
+```shell
+#!/bin/bash
+sudo apt-get update -y
+sudo apt install -y git curl wget htop ca-certificates gcc libc6-dev liblua5.3-dev libpcre3-dev libssl-dev libsystemd-dev make wget zlib1g-dev haproxy
+cd /home/ubuntu
+git clone https://github.com/haproxy/haproxy.git
+cd haproxy
+sudo git checkout v2.2.0
+sudo make TARGET=linux-glibc USE_LUA=1 USE_OPENSSL=1 USE_PCRE=1 USE_ZLIB=1 USE_SYSTEMD=1 EXTRA_OBJS="contrib/prometheus-exporter/service-prometheus.o"
+sudo make install-bin
+
+sudo systemctl stop haproxy
+sudo cp /usr/local/sbin/haproxy /usr/sbin/haproxy
+sudo systemctl start haproxy
+```
+
+And this is the ec2 terraform module.
+
+```terraform
+resource "aws_instance" "this" {
+  ami                         = var.ami_id
+  instance_type               = var.instance_type
+  key_name                    = var.key_name
+  associate_public_ip_address = var.associate_public_ip_address
+  security_groups             = var.security_groups
+  subnet_id                   = var.subnet_id
+  user_data                   = file(var.user_data)
+  tags = {
+    Name        = var.name
+    Description = "Managed by terraform"
+  }
+  lifecycle {
+    ignore_changes = [
+      # Ignore changes to security group, it will force a new resource
+      tags, security_groups, vpc_security_group_ids, associate_public_ip_address
+    ]
+  }
+}
+```
+
+Execute with this command to create the instance.
+
+```shell
+terraform plan
+terraform apply -auto-approve
+```
+
+I choose default VPC from AWS and just use the default subnet (`subnet-69398430`), it is `ap-southeast-1c (apse1-az3)`. And for the rest of the infrastructure, it will be using the same availability zone, or we simply say it the same data center.
+
+After the instance is ready, we can ssh into the instance. We wil configure this instance later after creating the backend instances.
 
 ## Tricks
 
