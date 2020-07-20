@@ -277,7 +277,38 @@ sudo cat /etc/letsencrypt/live/serverless.my.id/fullchain.pem \
 
 ## Configuring HA Proxy instance
 
-Take a note on the backend instances private ip, then SSH to the HA Proxy instance. Update the `/etc/haproxy/haproxy.cfg` with this configuration.
+SSH to the HA Proxy instance and check the installation with this command. Make sure the Prometheus exporter is ready.
+
+```
+haproxy -v
+
+HA-Proxy version 2.2.0 2020/07/07 - https://haproxy.org/
+Status: long-term supported branch - will stop receiving fixes around Q2 2025.
+Known bugs: http://www.haproxy.org/bugs/bugs-2.2.0.html
+Running on: Linux 4.15.0-1058-aws #60-Ubuntu SMP Wed Jan 15 22:35:20 UTC 2020 x86_64
+
+haproxy -vv | grep Prometheus
+
+Built with the Prometheus exporter as a service
+
+```
+
+Let's check if the port: 22, 80, 443 and 8404 is open in the instance.
+
+```
+sudo netstat -ntpl
+
+Active Internet connections (only servers)
+Proto Recv-Q Send-Q Local Address           Foreign Address         State       PID/Program name
+tcp        0      0 0.0.0.0:8404            0.0.0.0:*               LISTEN      32063/haproxy
+tcp        0      0 127.0.0.53:53           0.0.0.0:*               LISTEN      2913/systemd-resolv
+tcp        0      0 0.0.0.0:22              0.0.0.0:*               LISTEN      924/sshd
+tcp        0      0 0.0.0.0:443             0.0.0.0:*               LISTEN      32063/haproxy
+tcp        0      0 0.0.0.0:80              0.0.0.0:*               LISTEN      32063/haproxy
+tcp6       0      0 :::22                   :::*                    LISTEN      924/sshd
+```
+
+Great, now take a note on the backend instances private ip, then update the `/etc/haproxy/haproxy.cfg` with this configuration.
 
 ```
 global
