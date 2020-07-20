@@ -26,6 +26,51 @@ module "haproxy" {
   subnet_id                   = "subnet-69398430"
   user_data                   = "userdata_haproxy.sh"
 }
+
+resource "aws_security_group" "haproxy_sg" {
+  name        = "haproxy"
+  description = "Allow access to HA Proxy instance from VPN"
+  vpc_id      = "vpc-7829341f"
+
+  ingress {
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["202.80.214.161/32"]
+  }
+
+  ingress {
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    from_port   = 8404
+    to_port     = 8404
+    protocol    = "tcp"
+    cidr_blocks = ["202.80.214.161/32"]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
+output "haproxy_public_dns" {
+  value = module.haproxy.public_dns
+}
 ```
 
 This is the user data to install HA Proxy.
@@ -77,9 +122,142 @@ terraform plan
 terraform apply -auto-approve
 ```
 
-I choose default VPC from AWS and just use the default subnet (`subnet-69398430`), it is `ap-southeast-1c (apse1-az3)`. And for the rest of the infrastructure, it will be using the same availability zone, or we simply say it the same data center.
+I choose default VPC from AWS and just use the default subnet (`subnet-69398430`), it is `ap-southeast-1c (apse1-az3)`. And for the rest of the infrastructure, it will be using the same availability zone, or we simply say it the same data center. The security group is allowed only me to ssh into the instance and open the prometheus metrics & stat.
 
 After the instance is ready, we can ssh into the instance. We wil configure this instance later after creating the backend instances.
+
+
+## Backend Instance
+
+I use this following commands to create 3 Backend instance using terraform. The backend is just a plain PHP script with Nginx and PHP-FPM.
+
+```terraform
+resource "aws_security_group" "backend_sg" {
+  name        = "backend"
+  description = "Allow access from HA Proxy instance"
+  vpc_id      = "vpc-7829341f"
+
+  ingress {
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["172.31.0.0/16"]
+  }
+
+  ingress {
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["${module.haproxy.private_ip}/32"]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
+module "backend_1" {
+  source                      = "../modules/ec2"
+  name                        = "backend_1"
+  ami_id                      = "ami-07ce5f60a39f1790e"
+  instance_type               = "t2.micro"
+  key_name                    = "fajri_haproxy"
+  associate_public_ip_address = true
+  security_groups             = ["${aws_security_group.backend_sg.id}"]
+  subnet_id                   = "subnet-69398430"
+  user_data                   = "userdata_php.sh"
+}
+
+output "backend_1_private_ip" {
+  value = module.backend_1.private_ip
+}
+
+module "backend_2" {
+  source                      = "../modules/ec2"
+  name                        = "backend_2"
+  ami_id                      = "ami-07ce5f60a39f1790e"
+  instance_type               = "t2.micro"
+  key_name                    = "fajri_haproxy"
+  associate_public_ip_address = true
+  security_groups             = ["${aws_security_group.backend_sg.id}"]
+  subnet_id                   = "subnet-69398430"
+  user_data                   = "userdata_php.sh"
+}
+
+output "backend_2_private_ip" {
+  value = module.backend_2.private_ip
+}
+
+module "backend_3" {
+  source                      = "../modules/ec2"
+  name                        = "backend_3"
+  ami_id                      = "ami-07ce5f60a39f1790e"
+  instance_type               = "t2.micro"
+  key_name                    = "fajri_haproxy"
+  associate_public_ip_address = true
+  security_groups             = ["${aws_security_group.backend_sg.id}"]
+  subnet_id                   = "subnet-69398430"
+  user_data                   = "userdata_php.sh"
+}
+
+output "backend_3_private_ip" {
+  value = module.backend_3.private_ip
+}
+```
+
+This is the user data to install the Backend instance.
+
+```shell
+#!/bin/bash
+sudo apt-get update -y
+sudo apt-get install nginx git zip curl wget php php-fpm -y
+
+sudo mkdir /var/www/php
+cat <<EOF | sudo tee /var/www/php/index.php
+<?php
+print_r(\$_SERVER['SERVER_ADDR']);
+EOF
+sudo chown -R www-data:www-data /var/www/php
+sudo rm -rf /etc/nginx/sites-available/example.com
+cat <<EOF | sudo tee /etc/nginx/sites-available/example.com
+server {
+    listen 80;
+    root /var/www/php;
+    index index.php index.html index.htm index.nginx-debian.html;
+    location / {
+        try_files \$uri \$uri/ /index.php?\$query_string;
+    }
+    location ~ \.php$ {
+        fastcgi_pass unix:/var/run/php/php7.2-fpm.sock;
+        fastcgi_index index.php;
+        fastcgi_param SCRIPT_FILENAME \$realpath_root\$fastcgi_script_name;
+        include fastcgi_params;
+    }
+    location ~ /\.ht {
+        deny all;
+    }
+}
+EOF
+sudo ln -s /etc/nginx/sites-available/example.com /etc/nginx/sites-enabled/
+sudo unlink /etc/nginx/sites-enabled/default
+sudo nginx -t
+sudo systemctl stop apache2
+sudo systemctl restart nginx
+```
+
+Execute with this command to create the instance.
+
+```shell
+terraform plan
+terraform apply -auto-approve
+```
+
+The backend instances allowed port 22 to be accessed by any machine inside the VPC. And port 80 is only allowed for the HA Proxy instance.
+
+---
 
 ## Tricks
 
