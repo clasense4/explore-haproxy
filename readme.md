@@ -350,29 +350,40 @@ backend backend
 
 > :exclamation: **Do not forget** to upload the SSL certificate and change the backend instance IP address
 
+Validate the haproxy configuration and restart the HA Proxy service with this command
+
+```
+haproxy -c -V -f /etc/haproxy/haproxy.cfg
+sudo service haproxy restart
+```
+
+## Mapping the HA Proxy instance to route53
+
+I will use a sub domain to access our setup with this following terraform code.
+
+```terraform
+resource "aws_route53_record" "www" {
+  zone_id = "Z0267035H2P3O9XYGZ3K"
+  name    = "haproxy.serverless.my.id"
+  type    = "A"
+  ttl     = "300"
+  records = ["${module.haproxy.public_ip}"]
+}
+```
+
+## Test our setup
+
+If we check our EC2 menu, we should see something like this.
+
+![](/images/haproxy_ec2_menu.png)
+
+We can open our browser to see it in action.
+
+![](/images/haproxy-in-action.gif)
+
 ---
 
 ## Tricks
-
-### Validate HA Proxy config
-
-```shell
-haproxy -c -V -f /etc/haproxy/haproxy.cfg
-```
-
-### Request let's encrypt certificate
-
-```
-sudo certbot certonly --dns-route53 -d "*.serverless.my.id" -d serverless.my.id --agree-tos --no-bootstrap --manual-public-ip-logging-ok --preferred-challenges dns-01 --server https://acme-v02.api.letsencrypt.org/directory
-```
-
-### Combine let's encrypt certificate and private key
-
-```
-sudo cat /etc/letsencrypt/live/serverless.my.id/fullchain.pem \
-    /etc/letsencrypt/live/serverless.my.id/privkey.pem \
-    | sudo tee serverless.my.id.pem
-```
 
 ## Vegeta Load test Commands
 
