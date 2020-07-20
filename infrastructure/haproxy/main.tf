@@ -30,14 +30,14 @@ resource "aws_security_group" "haproxy_sg" {
     from_port   = 80
     to_port     = 80
     protocol    = "tcp"
-    cidr_blocks = ["202.80.214.161/32"]
+    cidr_blocks = ["0.0.0.0/0"]
   }
 
   ingress {
     from_port   = 443
     to_port     = 443
     protocol    = "tcp"
-    cidr_blocks = ["202.80.214.161/32"]
+    cidr_blocks = ["0.0.0.0/0"]
   }
 
   ingress {
@@ -81,7 +81,7 @@ resource "aws_security_group" "backend_sg" {
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = ["202.80.214.161/32"]
+    cidr_blocks = ["202.80.214.161/32", "172.31.0.0/16"]
   }
 
   ingress {
