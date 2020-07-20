@@ -37,6 +37,12 @@ sudo cat /etc/letsencrypt/live/serverless.my.id/fullchain.pem \
 
 ```
 echo "POST https://haproxy.serverless.my.id" | ./vegeta -cpus=2 attack -duration=10m -rate=100 -workers=4  | tee reports.bin | ./vegeta report
+# 60K Total request in 1 minute
+time echo "POST https://haproxy.serverless.my.id" | vegeta -cpus=1 attack -duration=1m -rate=1000 -workers=50  | tee reports.bin | vegeta report
+# 60K Total request in 1 minute
+time echo "POST https://haproxy.serverless.my.id" | vegeta -cpus=2 attack -duration=1m -rate=1000 -workers=100  | tee reports.bin | vegeta report
+# 120K Total request in 1 minute (Failed)
+time echo "POST https://haproxy.serverless.my.id" | vegeta -cpus=2 attack -duration=1m -rate=2000 -workers=100  | tee reports.bin | vegeta report
 ```
 
 ## Resources
@@ -56,3 +62,10 @@ echo "POST https://haproxy.serverless.my.id" | ./vegeta -cpus=2 attack -duration
 - [https://www.haproxy.com/blog/exploring-the-haproxy-stats-page/](https://www.haproxy.com/blog/exploring-the-haproxy-stats-page/)
 - [https://github.com/prometheus/haproxy_exporter](https://github.com/prometheus/haproxy_exporter)
 - [https://www.haproxy.com/blog/haproxy-exposes-a-prometheus-metrics-endpoint/](https://www.haproxy.com/blog/haproxy-exposes-a-prometheus-metrics-endpoint/)
+
+
+### Load test HA Proxy
+
+- [https://medium.com/@sachinmalhotra/load-testing-haproxy-part-1-f7d64500b75d](https://medium.com/@sachinmalhotra/load-testing-haproxy-part-1-f7d64500b75d)
+- [https://medium.com/@sachinmalhotra/load-testing-haproxy-part-2-4c8677780df6](https://medium.com/@sachinmalhotra/load-testing-haproxy-part-2-4c8677780df6)
+- [https://medium.com/free-code-camp/how-we-fine-tuned-haproxy-to-achieve-2-000-000-concurrent-ssl-connections-d017e61a4d27](https://medium.com/free-code-camp/how-we-fine-tuned-haproxy-to-achieve-2-000-000-concurrent-ssl-connections-d017e61a4d27)
